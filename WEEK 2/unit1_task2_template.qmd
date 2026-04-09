@@ -1,0 +1,98 @@
+---
+title: "Client Report - What's in a Name?"
+subtitle: "Unit 1 Task 2"
+author: "Camila Rojas"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import pandas as pd
+import numpy as np
+from lets_plot import *
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+```{python}
+# Learn morea about Code Cells: https://quarto.org/docs/reference/cells/cells-jupyter.html
+
+# Include and execute your code here
+df = pd.read_csv("https://github.com/byuidatascience/data4names/raw/master/data-raw/names_year/names_year.csv")
+```
+
+## QUESTION 1
+
+__How does your name at your birth year compare to its use historically? Your must provide a chart. The years labels on your charts should not include a comma.__ 
+
+Historically, the name Camila was not very common for most of the 1900s. For many years, the number of babies named Camila stayed very low. In the late 1990s and early 2000s, the use of the name began to increase quickly. The dashed vertical line on the chart marks my birth year, 2007. At that time, the name Camila was already becoming much more popular. This shows that my name became popular around the year I was born, compared to how rarely it was used in the past.
+
+```{python}
+# Q1
+
+# Filter the data to only the name Camila
+camila = df.query('name == "Camila"')
+
+# Plot how the name Camila changes over time
+(
+    ggplot(camila, aes(x='year', y='Total'))
+    + geom_line()
+    # Reference mark for my birth year
+    + geom_vline(xintercept=2007, linetype='dashed')
+    # Format year labels so they don't show commas
+    + scale_x_continuous(format='d')
+    + labs(
+        title="Use of the name Camila over time",
+        x="Year",
+        y="Name Count"
+    )
+)
+
+```
+
+
+## QUESTION 2
+
+__If you talked to someone named Brittany on the phone, what is your guess of his or her age? What ages would you not guess? Try to justify your answer with whatever statistics knowledge you have. You must provide a chart. The years labels on your charts should not include a comma.__  
+
+The chart shows that the name Brittany was most popular around 1990. Because of this, if I talked to someone named Brittany on the phone, I would guess they are around 35 to 36 years old today. I wouldn't guess that the person is very young, like a child or teenager, since the name became much less popular after the 1990s. I also wouldn't guess that the person is much older, because the name was not very common before it peaked. Based on the chart, Brittany is most common for people born around 1990.
+
+```{python}
+# Q2
+
+# Filter the data to only the name Brittany
+brittany = df.query('name == "Brittany"')
+
+# Plot how the name Brittany changes over time
+(
+    ggplot(brittany, aes(x='year', y='Total'))
+    + geom_line()
+    # Format year labels so they don't show commas
+    + scale_x_continuous(format='d')
+    + labs(
+        title='Use of the name Brittany over time',
+        x='Year',
+        y='Name Count'
+    )
+)
+
+```
