@@ -1,0 +1,118 @@
+---
+title: "Client Report - Highest Paid Positions"
+subtitle: "Unit 2 Task 4"
+author: "Camila Rojas"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import pandas as pd 
+import numpy as np
+import sqlite3
+from lets_plot import *
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+
+```{python}
+# Learn morea about Code Cells: https://quarto.org/docs/reference/cells/cells-jupyter.html
+
+# Include and execute your code here
+sqlite_file = 'lahmansbaseballdb.sqlite'
+# this file must be in the same location as your .qmd or .py file
+con = sqlite3.connect(sqlite_file)
+```
+
+
+## Question 1
+
+__Write an SQL query that provides a summary table showing the average salary for each position (e.g., pitcher, catcher, outfielder). Position information can be found in the fielding table in the POS column.__
+
+Include the following columns:
+
+- position
+- average_salary
+- total_players
+- highest_salary
+The highest_salary column should display the highest salary ever earned by a player in that position.
+
+Additionally, create a new column called salary_category using a case statement:
+
+If the average salary is above $3 million, categorize it as “High Salary.”
+If the average salary is between $2 million and $3 million, categorize it as “Medium Salary.”
+Otherwise, categorize it as “Low Salary.”
+Order the table by average salary in descending order.
+
+From my results, 1B has the highest average salary at about $3.34M (High Salary) with 472 total players. OF is next at about $2.41M (Medium Salary) and has 1121 players, so a lot more players than 1B. C has the lowest average salary at about $1.44M (Low Salary). The highest_salary column shows that some positions can still have very large single salaries even when their overall average is lower.
+
+```{python}
+
+q = """
+
+    WITH max_games AS (
+        SELECT playerID,
+            yearID,
+            MAX(G) AS maxG
+        FROM fielding
+        GROUP BY playerID, yearID
+    ),
+    primary_pos AS (
+        SELECT f.playerID,
+            f.yearID,
+            MIN(f.POS) AS position
+        FROM fielding AS f
+        JOIN max_games AS m
+        ON f.playerID = m.playerID
+        AND f.yearID  = m.yearID
+        AND f.G       = m.maxG
+        GROUP BY f.playerID, f.yearID
+    ),
+    salary_by_player_year AS (
+        SELECT playerID,
+            yearID,
+            SUM(salary) AS salary
+        FROM salaries
+        GROUP BY playerID, yearID
+    )
+    SELECT p.position,
+        ROUND(AVG(s.salary), 2) AS average_salary,
+        COUNT(DISTINCT p.playerID) AS total_players,
+        MAX(s.salary) AS highest_salary,
+        CASE
+            WHEN AVG(s.salary) > 3000000 THEN 'High Salary'
+            WHEN AVG(s.salary) BETWEEN 2000000 AND 3000000 THEN 'Medium Salary'
+            ELSE 'Low Salary'
+        END AS salary_category
+    FROM primary_pos AS p
+    JOIN salary_by_player_year AS s
+    ON p.playerID = s.playerID
+    AND p.yearID  = s.yearID
+    GROUP BY p.position
+    ORDER BY average_salary DESC;
+
+"""
+pos_results = pd.read_sql_query(q, con)
+pos_results
+
+```

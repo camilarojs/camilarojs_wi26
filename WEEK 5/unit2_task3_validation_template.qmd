@@ -1,0 +1,110 @@
+---
+title: "Client Report - Longevity of Baseball Players"
+subtitle: "Unit 2 Task 3"
+author: "Camila Rojas"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import pandas as pd 
+import numpy as np
+import sqlite3
+from lets_plot import *
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+
+```{python}
+# Learn morea about Code Cells: https://quarto.org/docs/reference/cells/cells-jupyter.html
+
+# Include and execute your code here
+sqlite_file = 'lahmansbaseballdb.sqlite'
+# this file must be in the same location as your .qmd or .py file
+con = sqlite3.connect(sqlite_file)
+```
+
+
+## Question 1
+
+__Write an SQL query that pulls in the the salaries table and the collegeplaying table (and any other tables you might need) and store them in pandas dataframes. Combine the dataframes to create a list of baseball players who attended BYU-Idaho. The new table should contain five columns: playerID, schoolID, salary, and the yearID/teamID associated with each salary. Print out the table in your report.__
+
+This table shows the salaries for players who attended BYU-Idaho. For example, lindsma01 appears multiple times because he played for different teams and years, like FLO and HOU. We can also see his salary increasing in later years, which shows how his career progressed.
+
+<!-- The code chunk below can get you going, you may want to write additional code before or after it. -->
+
+```{python}
+# Include and execute your code here
+q1 = """SELECT *
+        FROM salaries
+    """
+salaries = pd.read_sql_query(q1, con)
+
+q2 = """SELECT *
+        FROM collegeplaying
+    """
+college = pd.read_sql_query(q2, con)
+
+byui = college.loc[college["schoolID"] == "idbyuid", ["playerID", "schoolID"]]
+
+results = pd.merge(byui, salaries[["playerID", "yearID", "teamID", "salary"]], on="playerID")
+
+results = results[["playerID", "schoolID", "salary", "yearID", "teamID"]].sort_values(["playerID", "yearID"])
+
+results
+
+```
+
+## Question 2
+
+__Pick any two baseball teams and compare them using a metric of your choice (average salary, home runs, number of wins, etc). Be creative! Write an SQL query to read in the tables you need (similar to the tasks above), then use pandas to manipulate the data. Finally, make a graph using Lets-Plot to visualize the comparison. What do you learn?__
+
+This graph shows the average salary of the Yankees (NYA) and Red Sox (BOS) over time. After 2000, the Yankees’ average salary goes up to around 7–8 million dollars, while the Red Sox are closer to 5–6 million. Both teams increase spending over time, but NYA clearly spends more in most years.
+
+
+```{python}
+
+q = """
+    SELECT yearID, teamID, salary
+    FROM salaries
+    """
+
+salaries_small = pd.read_sql_query(q, con)
+
+two_teams = salaries_small.query("teamID == 'NYA' or teamID == 'BOS'")
+
+avg_salary = (two_teams.groupby(["yearID", "teamID"], as_index=False).agg(avg_salary=("salary", "mean")))
+
+(
+    ggplot(avg_salary, aes(x="yearID", y="avg_salary", color="teamID"))
+    + geom_line()
+    + scale_x_continuous(format="d")
+    + labs(
+        title="Average Salary by Year (NYA vs BOS)",
+        x="Year",
+        y="Average Salary ($)",
+        color="Team"
+    )
+)
+
+```
