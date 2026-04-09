@@ -1,0 +1,289 @@
+---
+title: "Client Report - STRETCH"
+subtitle: "Unit 5 Task 3"
+author: "Camila Rojas"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import pandas as pd 
+import numpy as np
+from lets_plot import *
+from sklearn.model_selection import train_test_split
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.ensemble import RandomForestClassifier
+from plotnine import geom_bin2d
+from sklearn.metrics import roc_curve, auc
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+# QUESTION 1. Build a machine learning model that predicts whether a person makes at least $50k with accuracy of at least 65%. Describe your model and report the accuracy.
+
+_I built a Random Forest classification model to predict if a person makes at least $50k. The model reached about 66% accuracy, which meets the requirement of at least 65%. This means the model is slightly better than random guessing, but not very strong.
+
+_I used a Random Forest model with 100 trees and a random_state of 42. The model works by combining multiple decision trees to make predictions. Overall, the model works, but the accuracy shows that the data may not have very strong patterns to predict income._
+
+```{python}
+# import your data here using pandas and the URL
+df = pd.read_csv("https://github.com/fivethirtyeight/data/raw/master/star-wars-survey/StarWars.csv", encoding_errors = "ignore", skiprows=1)
+
+```
+```{python}
+new_col_names = [
+  "Respondant_id","Seen_any","StarWars_fan",
+  #Whether seen any of the movies
+  "seen_epi1","seen_epi2","seen_epi3","seen_epi4","seen_epi5","seen_epi6",
+  #Movie Ranking (1 = Best, 6 = Worst)
+  "rank_epi1","rank_epi2","rank_epi3","rank_epi4","rank_epi5","rank_epi6",
+  #Character favorably or not
+  "han_solo_opinion","luke_skywalker_opinion","leia_opinion","anakin_opinion","obi_wan_opinion","palpatine_opinion","darth_vader_opinion","lando_opinion","boba_fett_opinion","c3po_opinion","r2d2_opinion","jar_jar_opinion","padme_opinion","yoda_opinion",
+  # shot
+  "shot_first",
+  # universe
+  "understand_extended_universe","fan_extended_universe","star_trek_fan","gender","age","household_income","education","location"
+]
+film_order = [
+    "Return of the Jedi",     
+    "The Empire Strikes Back",
+    "A New Hope",
+    "Revenge of the Sith",
+    "Attack of the Clones",
+    "The Phantom Menace",     
+]
+
+df.columns = new_col_names
+```
+```{python}
+seen_cols = ["seen_epi1","seen_epi2","seen_epi3","seen_epi4","seen_epi5","seen_epi6"]
+
+df_seen = df[df[seen_cols].notna().any(axis = 1)]
+```
+```{python}
+def age_mapping(range):
+    if range == "18-29":
+        return 23.5
+    elif range == "30-44":
+        return 37
+    elif range == "45-60":
+        return 52.5
+    elif range == ">60":
+        return 70
+    else: np.nan
+
+df_newcolumn = df.copy()
+df_newcolumn["single_age"] = df_newcolumn["age"].apply(age_mapping).astype('Float64')
+```
+```{python}
+df_newcolumn["missing_age"] = df_newcolumn["single_age"].isna().astype(int)
+df_newcolumn["single_age"] = df_newcolumn["single_age"].fillna(0)
+```
+```{python}
+#drop the column range
+df_newcolumn = df_newcolumn.drop(columns="age")
+```
+```{python}
+def education_map(range):
+    if range == "High school degree":
+        return 1
+    elif range == "Some college or Associate degree":
+        return 2
+    elif range == "Less than high school":
+        return 0
+    elif range == "Bachelor degree":
+        return 3
+    elif range == "Graduate degree":
+        return 4
+    else: np.nan
+
+df_newcolumn["ed_number"] = df_newcolumn["education"].apply(education_map).astype("Float64")
+```
+```{python}
+df_newcolumn["ed_number"] = df_newcolumn["ed_number"].ffill()
+df_newcolumn["ed_number"].unique()
+df_newcolumn = df_newcolumn.drop(columns="education")
+```
+```{python}
+def income_mapping(range):
+    if range == "$0 - $24,999":
+        return 12500
+    elif range == "$25,000 - $49,999":
+        return 37500
+    elif range == "$50,000 - $99,999":
+        return 75000
+    elif range == "$100,000 - 149,999":
+        return 12500
+    elif range == "$150,000+":
+        return 150000
+    else: np.nan
+
+df_newcolumn["income"] = df_newcolumn["household_income"].apply(income_mapping).astype('Float64')
+
+df_newcolumn["missing_income"] = df_newcolumn["household_income"].isna().astype(int)
+df_newcolumn["income"] = df_newcolumn["income"].fillna(0)
+df_newcolumn = df_newcolumn.drop(columns="household_income")
+```
+```{python}
+df_newcolumn['target'] = (df_newcolumn["income"]>=50000)*1
+```
+```{python}
+favorability_col = []
+
+for col in df_newcolumn.columns:
+    if col.endswith("_opinion"):
+        favorability_col.append(col)
+
+categorical_cols = favorability_col.copy()
+object_columns = df_newcolumn.select_dtypes(include = "object").columns
+
+for col in object_columns:
+    if col not in favorability_col:
+        categorical_cols.append(col)
+```
+```{python}
+df_encoded = pd.get_dummies(df_newcolumn, columns= categorical_cols, dtype = int)
+
+ranks = ["rank_epi1","rank_epi2","rank_epi3","rank_epi4","rank_epi5","rank_epi6"]
+df_encoded[ranks] = df_encoded[ranks].fillna(df_encoded[ranks].mean().round(0))
+```
+```{python}
+target = "target"
+
+#Prepare the feature (variable)
+x = df_encoded.drop(columns = ["target","income","Respondant_id"])
+y = df_encoded["target"]
+
+#Split
+x_train, x_test, y_train, y_test = train_test_split(x,y, test_size=0.2, random_state=42)
+
+#Build/train the model
+model = RandomForestClassifier(n_estimators=100, random_state=42)
+model.fit(x_train, y_train)
+
+```
+```{python}
+y_pred = model.predict(x_test)
+
+print(f"Accuracy:{accuracy_score(y_test,y_pred)}")
+```
+
+# QUESTION 2. Validate the data provided on GitHub lines up with the article by recreating a 3rd visual from the article.
+
+_The graph shows how each Star Wars movie is rated in the bottom, middle, and top third. We can see that movies like The Empire Strikes Back have a high percentage in the top third, while movies like Attack of the Clones have more ratings in the bottom third. This matches what is usually expected from fans.
+
+Overall, the graph is similar to the original article, so the data seems to match and is consistent. This helps confirm that the dataset is correct._ 
+
+```{python}
+ranks = ["rank_epi1","rank_epi2","rank_epi3","rank_epi4","rank_epi5","rank_epi6"]
+movies = ["The Phantom Menace","Attack of the Clones","Revenge of the Sith","A New Hope","The Empire Strikes Back","Return of the Jedi"]
+category_order = [
+    "Bottom Third",
+    "Middle Third",
+    "Top Third",
+]
+thirds = {
+  1:"Top Third",
+  2:"Top Third",
+  3:"Middle Third",
+  4:"Middle Third",
+  5:"Bottom Third",
+  6:"Bottom Third"
+  }
+```
+```{python}
+
+df_ranks = df.dropna(subset=seen_cols, how='any')
+df_ranks = df_ranks[ranks]
+df_ranks.columns = movies
+df_ranks2 = df_ranks
+df_ranks = df_ranks.replace(thirds)
+
+counts = (
+    df_ranks.apply(lambda col: col.value_counts())
+      .fillna(0)
+      .astype(int)
+)
+df_long = (
+    counts
+    .reset_index()
+    .melt(id_vars="index", var_name="Film", value_name="Count")
+    .rename(columns={"index": "Category"})
+)
+```
+```{python}
+df_long["Percentage"] = (
+    df_long.groupby("Film")["Count"].apply(lambda x: x / x.sum() * 100).round(0).reset_index(drop=True)
+)
+df_long["Film"] = pd.Categorical(df_long["Film"], categories=film_order, ordered=True)
+
+df_long["Category"] = pd.Categorical(df_long["Category"], categories=category_order, ordered=True
+)
+```
+```{python}
+# 3rd Graph
+df_long["PctLabel"] = df_long["Percentage"].astype(str) + "%"
+plot = (
+    ggplot(df_long, aes(x="Film", y="Percentage", fill="Category"))
+    + geom_bar(stat="identity", width=0.4)
+    + facet_grid(x="Category")
+    + geom_text(
+        aes(label="PctLabel"),
+        nudge_y=6,
+        size=5,
+        color="black"
+    )
+    + coord_flip()
+    + scale_y_continuous(breaks=[])
+    + labs(
+        title = "How People 'Rate' Star Wars Movies",
+        subtitle = "How often each of the Star Wars movies are rated in the top, middle, or bottom third"
+    )
+    + theme(
+        plot_title=element_text(face="bold"),
+        )
+)
+plot
+```
+
+# QUESTION 3. Create a new column that converts the location groupings to a single number (a.k.a. label encoding). Drop the location categorical column.
+
+_I created a new column called location_encoded where I converted each location category into a number. This is called label encoding. I did this because machine learning models work better with numbers instead of text.
+
+After that, I dropped the original location column since it's no longer needed. Now the model can use the location information in a way that it understands. This helps improve how the model processes the data._
+
+```{python}
+locations = {
+  "East South Central":1,
+  "West South Central":2,
+  "New England":3,
+  "Mountain":4,
+  "Pacific":5,
+  "East North Central":6,
+  "West North Central":7,
+  "Middle Atlantic":8,
+  "South Atlantic":9,
+  np.nan:0
+}
+df_newcolumn["location_encoded"] = df_newcolumn["location"].map(locations)
+df_newcolumn = df_newcolumn.drop(columns="location")
+df_newcolumn
+```
