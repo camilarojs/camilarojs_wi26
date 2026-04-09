@@ -1,0 +1,112 @@
+---
+title: "Unit 3 STRETCH: Comparing Delay Types"
+subtitle: "Unit 3 Task 4"
+author: "Camila Rojas"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import pandas as pd 
+import numpy as np
+import sqlite3
+from lets_plot import *
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+
+```{python}
+# Learn morea about Code Cells: https://quarto.org/docs/reference/cells/cells-jupyter.html
+
+df = pd.read_json("https://github.com/byuidatascience/data4missing/raw/master/data-raw/flights_missing/flights_missing.json")
+```
+```{python}
+# Cleaning the data
+df1 = df
+df1 = df1.replace("",np.nan)
+df1= df1.replace("n/a",np.nan)
+
+df1['airport_name'] = df1.sort_values('airport_code',ascending=False)['airport_name'].ffill()
+
+df1['year'] = np.where(df1['month'] != 'December',df1['year'].ffill(),df1['year'].bfill())
+
+df1['month'] = df1['month'].ffill()
+df1.num_of_delays_carrier = df1.num_of_delays_carrier.replace("1500+",1500)
+df1.num_of_delays_late_aircraft = df1.num_of_delays_late_aircraft.replace(-999,np.nan)
+
+cols = ['num_of_delays_late_aircraft','minutes_delayed_carrier','minutes_delayed_nas']
+df1[cols] = df1[cols].fillna(df1[cols].mean().round(1))
+
+```
+
+# QUESTION 1
+__Which delay is the worst delay? Build on the analysis you already did regarding Weahter Delay. This time though, instead of comparing one type of delay across multiple airports, we want to compare Weather Delay (an involved calculation that you already did in a previous task) with Carrier Delay and Security Delay (both of which are in the dataset and don’t need fancy calculations like Weather did). Compare the proportion of delay for each of the three categories in a Chart and a Table. Describe your results.__
+
+_The worst type of delay is weather delay because it has the highest values compared to carrier and security delays across all airports. From the table, we can see that total_weather_delays is much larger than the other two categories. Carrier delays are also high, but not as much as weather, and security delays are very small. This shows that weather is the main cause of delays overall_
+
+```{python}
+nas_factor = np.where(df1['month'].isin({"April","June","July","August"}),0.4,0.65)
+
+df1['total_weather_delays'] = (
+  df1['num_of_delays_late_aircraft']*0.3+
+  df1['num_of_delays_weather']+
+  df1['num_of_delays_nas'] * nas_factor
+).round(0)
+```
+
+```{python}
+df1["num_of_delays_carrier"] = pd.to_numeric(df1["num_of_delays_carrier"], errors="coerce").astype(int)
+
+worst_delay = df1.groupby("airport_code").agg({"num_of_delays_carrier":"sum","num_of_delays_security":"sum",'total_weather_delays':'sum'}).round(0).reset_index()
+
+worst_delay["total_delays"] = worst_delay["num_of_delays_carrier"] + worst_delay["num_of_delays_security"] + worst_delay["total_weather_delays"]
+
+worst_delay = worst_delay.sort_values("total_delays", ascending=False).reset_index(drop=True)
+worst_delay.head(10)
+```
+
+# Question 2
+__Create another chart that shows the proportion of delays for each reason (Weather, Carrier, and Security) across all 7 airports. Describe your results__
+
+_From the graph, we can see that weather delays make up the largest part of delays at every airport. Carrier delays are the second biggest, while security delays are very small in comparison. This means that most delays are caused by weather, followed by delays carrier. Overall, security delays do not have a big impact on total delays._
+
+```{python}
+df_long = worst_delay.melt(
+    id_vars="airport_code",
+    value_vars=["num_of_delays_carrier","num_of_delays_security","total_weather_delays"],
+    var_name="delay_type",
+    value_name="count"
+) #needed to use AI to find out how to use the df in fill
+
+plot = (
+    ggplot(df_long, aes(x="airport_code", y="count", fill="delay_type")) +
+    geom_bar(stat="identity", position="stack") +
+    scale_fill_manual(values=["green", "red","skyblue"]) +
+    labs(
+      title="Proportion of flights delayed (2005-2015)",
+      x= "Airport",
+      y="Amount of Delays"
+    )+ scale_y_continuous(format="~s")
+)
+plot
+```

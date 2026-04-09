@@ -1,0 +1,99 @@
+---
+title: "Client Report - If not now, when?"
+subtitle: "Unit 3 Task 3"
+author: "Camila Rojas"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import pandas as pd 
+import numpy as np
+import sqlite3
+from lets_plot import *
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+
+```{python}
+# Learn morea about Code Cells: https://quarto.org/docs/reference/cells/cells-jupyter.html
+
+# Include and execute your code here
+df = pd.read_json("https://github.com/byuidatascience/data4missing/raw/master/data-raw/flights_missing/flights_missing.json")
+```
+
+## QUESTION 1
+
+__What is the best month to fly if you want to avoid delays of any length?__ Describe the metric you chose and why you chose it to calculate your answer. Include one chart to help support your answer, with the x-axis ordered by month.
+
+_The best month to fly if you want to avoid delays is September. I chose to look at both the number of delayed flights and the total minutes delayed, because together they show how often delays happen and how serious they are. In both graphs, September has the lowest values or is among the lowest, so it seems to be the best month to fly. Months like June, July, and December have much higher delay numbers, so they would be worse options._
+
+```{python}
+#Organizing the table
+best_month = df.groupby("month").agg({"num_of_delays_total" : "mean","minutes_delayed_total": "mean"}).round(1).reset_index()
+
+months_dict = {
+    "January": 1,
+    "Febuary": 2,
+    "March": 3,
+    "April": 4,
+    "May": 5,
+    "June": 6,
+    "July": 7,
+    "August": 8,
+    "September": 9,
+    "October": 10,
+    "November": 11,
+    "December": 12
+}
+best_month['month_number'] = best_month['month'].map(months_dict).round(0)
+
+
+best_month = best_month.sort_values("month_number",ascending=False).reset_index(drop=True)
+```
+```{python}
+#Graphing
+
+plot = (
+  ggplot(best_month,aes(x="num_of_delays_total",y="month"))+
+  geom_bar(stat="identity")+
+  labs(
+    title="Months by Fligths Delayed",
+    y="Month",
+    x="Fligths Delayed"
+  )
+)
+plot
+```
+```{python}
+plot2 = (
+  ggplot(best_month,aes(x="minutes_delayed_total",y="month"))+
+  geom_bar(stat="identity")+
+  labs(
+    title="Months by Minutes Delayed",
+    y="Month",
+    x="Minutes Delayed"
+  )
+)
+plot2
+```

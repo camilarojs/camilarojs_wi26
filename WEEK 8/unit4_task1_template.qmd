@@ -1,0 +1,84 @@
+---
+title: "Client Report - Can You Predict That?"
+subtitle: "Unit 4 Task 1"
+author: "Manolo Vasquez"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import pandas as pd 
+import numpy as np
+from lets_plot import *
+from sklearn.datasets import load_wine
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.ensemble import RandomForestClassifier
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+
+```{python}
+# import your data here using pandas and the URL
+
+df = pd.read_csv("https://github.com/byuidatascience/data4dwellings/raw/master/data-raw/dwellings_ml/dwellings_ml.csv")
+df1 = df
+```
+
+## QUESTION
+
+__Build a classification model labeling houses as being built “before 1980” or “during or after 1980”.__ Your goal is to reach or exceed 90% accuracy. Report your final model choice and any other model parameters you may have tweaked (train-test split ratio, tuning parameters, etc).  
+
+_Using this code we can see that our prediction is good enough, having 93% of accuracy. At the beggining we needed to create the feature of 'labels' from 'before1980' and the exclude them from the X data so we can do the predictions correctly._
+
+```{python}
+# Include and execute your code here
+
+df1['before1980'] = df1["before1980"].map({0:"class_0",1:"class_1"})
+```
+```{python}
+X = df1.select_dtypes(include=[np.number]).drop(columns='yrbuilt')
+y = df1['before1980']
+
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.4, random_state=42)
+
+scaler = StandardScaler()
+X_train_scaled = scaler.fit_transform(X_train)
+X_test_scaled = scaler.transform(X_test)
+
+
+knn = RandomForestClassifier()
+knn.fit(X_train_scaled, y_train)
+```
+```{python}
+y_pred = knn.predict(X_test_scaled)
+
+print(f"Accuracy: {accuracy_score(y_test, y_pred)}")
+
+print(f"\nConfusion Matrix:\n{confusion_matrix(y_test,y_pred)}")
+
+print(f"\nClassification Report:\n{classification_report(y_test,y_pred)}")
+```

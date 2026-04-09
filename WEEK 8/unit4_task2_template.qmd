@@ -1,0 +1,108 @@
+---
+title: "Client Report -How good is it, really?"
+subtitle: "Unit 4 Task 2"
+author: "Camila Rojas"
+format:
+  html:
+    self-contained: true
+    page-layout: full
+    title-block-banner: true
+    toc: true
+    toc-depth: 3
+    toc-location: body
+    number-sections: false
+    html-math-method: katex
+    code-fold: true
+    code-summary: "Show the code"
+    code-overflow: wrap
+    code-copy: hover
+    code-tools:
+        source: false
+        toggle: true
+        caption: See code
+execute: 
+  warning: false
+    
+---
+
+```{python}
+import pandas as pd 
+import numpy as np
+from lets_plot import *
+from sklearn.datasets import load_wine
+from sklearn.model_selection import train_test_split
+from sklearn.preprocessing import StandardScaler
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import accuracy_score, confusion_matrix, classification_report
+from sklearn.metrics import classification_report
+from sklearn.ensemble import RandomForestClassifier
+
+LetsPlot.setup_html(isolated_frame=True)
+```
+
+
+```{python}
+# import your data here using pandas and the URL
+df = pd.read_csv("https://github.com/byuidatascience/data4dwellings/raw/master/data-raw/dwellings_ml/dwellings_ml.csv")
+df1 = df
+```
+```{python}
+X = df1.select_dtypes(include=[np.number]).drop(columns=['yrbuilt','before1980'])
+y = df1['before1980']
+
+
+X_train, X_test, y_train, y_test = train_test_split(X, y, train_size=0.4, random_state=42)
+
+
+myclassifier = RandomForestClassifier(random_state=42)
+myclassifier.fit(X_train, y_train)
+```
+```{python}
+y_pred = myclassifier.predict(X_test)
+
+```
+
+
+## QUESTION 1
+
+__Describe the quality of your classification model using 2-3 different evaluation metrics.__ You also need to explain how to interpret each of the evaluation metrics you use.  
+
+_The model has about 91% accuracy, which means it correctly predicts most of the houses. The confusion matrix shows that most predictions are correct, with fewer wrong classifications. From the classification report, precision and recall are both around 0.90 to 0.94, which means the model is good at predicting both classes. Overall, these metrics show that the model is reliable and performs well._
+
+```{python}
+# Include and execute your code here
+print(f"Accuracy: {accuracy_score(y_test, y_pred)}")
+
+print(f"\nConfusion Matrix:\n{confusion_matrix(y_test,y_pred)}")
+
+print(f"\nClassification Report:\n{classification_report(y_test,y_pred)}")
+
+```
+
+
+## QUESTION 2
+
+__Justify your classification model by discussing the most important features selected by your model.__ This discussion should include a feature importance chart and a description of the features.
+
+_From the feature importance chart, we can see which variables have the most influence on the model. Features like condition_VGood, gartype_Att/Det, and quality_X are the most important. This means the condition, garage type, and quality of the house play a big role in predicting if it was built before or after 1980. Other features have much lower importance, so they don't affect the model as much. Overall, the model is mainly using a few key features to make predictions._
+
+```{python}
+# Include and execute your code here
+myclassifier.feature_importances_
+X_train.columns
+
+df = pd.DataFrame({'importance':myclassifier.feature_importances_,
+'feature':X_train.columns}).sort_values('importance')
+
+df2 = df.head(10)
+```
+```{python}
+chart=(
+    ggplot(data = df2)
+    +geom_bar(aes(y='feature', x = 'importance'), stat = 'identity')+
+    labs(
+      title= 'Top 10 most important features'
+    )
+)
+chart
+```
